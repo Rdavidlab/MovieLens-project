@@ -1,0 +1,449 @@
+
+---
+title: "Harvardx-MovieLens"
+author: "Raymond"
+date: "5/26/2020"
+output: pdf_document
+latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+                                       MovieLens Project
+                                      Raymond Peter David
+\newpage
+# Table of Contents
+
+**1.Executive Summary(Introduction)**
+   
+    1(a). Introduction
+    1(b). Goal of project
+    1(c). Loading the dataset
+
+
+
+**2.Methods and Analysis**
+    
+    2(a). Initial data exploration
+    2(b). Graphs of variables
+    2(c). Model description
+    2(d). Preprocessing and data cleaning
+    2(e). Random Forest model
+    2(f). KNN algorithm
+    
+
+
+**3.Results**
+    
+    3(a).Insights and findings
+
+
+
+**4.Conclusion**
+    
+    4(a). Summary of findings
+    4(b). Limitations of model 
+    4(c). Future work 
+
+
+
+**5.Citation**
+    
+    5(a). Citation and credits 
+    
+
+
+
+
+\newpage
+----------------------------------------------------------------------------------------------
+
+#Executive Summary
+
+**1(a). Introduction**
+
+In this project, we will look into the MovieLens dataset and create a movie recommendation system. We will also try to predict the movie ratings based on the given variables. For this specific project, we will use the MovieLens 10M dataset with 6 variables.To get an idea of what each variables means, you can check the link in the footnote.[^1].In this project, we will go through the preprocessing activity to modify the data so that we can create a good model. Then,we will divide the dataset into the testing and training dataset.Also, we will try to test the value of the RMSE with different parameters.Lastly, we will evaluate the value of the RMSE. 
+
+**1(b). Goal of project**
+
+The goal of this project is to create a movie recommendation system using the code given above. The dataset is a subset of the the data used in the Netflix challenge. It consists of 10000054 ratings,10681, and 71567 users as seen from the grouplens website.Out of the 10M datapoints, we will divide it into training and testing data. We will then create our prediction using the RMSE with a goal of minimizing the value of the RMSE ideally below 0.86490.RMSE itself is the measure of how far the data diverged away from the regression line.Therefore, to make our model more accurate, we will aim for the lowest RMSE value.
+
+#Directions
+You will use the following code to generate your datasets. Develop your algorithm using the edx set. For a final test of your algorithm, predict movie ratings in the validation set as if they were unknown. RMSE will be used to evaluate how close your predictions are to the true values in the validation set.
+
+Important: The validation data should NOT be used for training your algorithm and should ONLY be used for evaluating the RMSE of your final algorithm. You should split the edx data into separate training and test sets to design and test your algorithm.
+
+Also remember that by accessing this site, you are agreeing to the terms of the edX Honor Code. This means you are expected to submit your own work and can be removed from the course for substituting another student's work as your own.
+
+**1(c). Loading the dataset**
+##Code given from the Harvardx capstone course
+```{r}
+# Create test and validation sets
+################################
+# Create edx set, validation set
+################################
+
+# Note: this process could take a couple of minutes
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(dplyr)) install.packages("dplyr",repos = "http://cran.us.r-project.org")
+if(!require(kknn)) install.packages("kknn",repos = "http://cran.us.r-project.org")
+#Load the packages into library
+library(tidyverse)
+library(caret)
+library(data.table)
+library(dplyr)
+library(kknn)
+# MovieLens 10M dataset:
+ # https://grouplens.org/datasets/movielens/10m/
+ # http://files.grouplens.org/datasets/movielens/ml-10m.zip
+```
+
+```
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                 col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+colnames(movies) <- c("movieId", "title", "genres")
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
+                                           title = as.character(title),
+                                           genres = as.character(genres))
+
+movielens <- left_join(ratings, movies, by = "movieId")
+
+# Validation set will be 10% of MovieLens data
+set.seed(1, sample.kind="Rounding")
+
+# if using R 3.5 or earlier, use `set.seed(1)` instead
+test_index <- createDataPartition(
+  y = movielens$rating, 
+  times = 1, 
+  p = 0.1, 
+  list = FALSE)
+
+# Spliting
+edx <- movielens[-test_index,] #train
+temp <- movielens[test_index,] #test
+
+# Make sure userId and movieId in validation set are also in edx set
+validation <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from validation set back into edx set
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
+#Cleaning the environment...
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+```
+#You should run all the codes above, if somehow you can't get the complete data after you view it 'view(edx)' and 'view(validation)', then below is an alternative.
+
+```{r}
+#Alternative method to load the dataset in case the code above doesn't work.
+#This code depends on where you store edx.rds and validation.rds. 
+#The link to these files will be provided in the footnote below.[^2]
+edx <- readRDS("~/Downloads/edx.rds")
+validation <- readRDS("~/Downloads/validation.rds")
+set.seed(1, sample.kind="Rounding")
+```
+#Method and Analysis
+##Initial data analysis 
+2(a).Initial data exploration
+##This is not necessary, but it is a good practice to be familiar with the dataset. 
+```{r}
+#Data structure and size
+str(edx)
+#Names of different columns
+names(edx)
+#Top 6 data 
+head(edx)
+#Check for missing values
+#This is an important step because otherwise we have to remove the missing values. 
+sum(is.na(edx))
+```
+
+**2(b). Graph of variables**
+
+```{r}
+#Plots to see data characteristic
+#This next two lines will be neccessary to make the graph, however, it will be explained later. 
+org_data<- read_csv("~/Downloads/theMovies_train.csv")
+org_test<- read_csv("~/Downloads/theMovies_test.csv")
+```
+```{r}
+#Distribution of Avg_Rating 
+ggplot(org_data) +
+ aes(x = Avg_Rating) +
+ geom_histogram(bins = 30L, fill = "#0c4c8a") +
+ theme_minimal()
+#We can see that the ratings tend to be above 3.There are more movies rated above three than below 3.
+```
+
+```{r}
+#Age vs Avg_Rating adjusted with votes
+##We can see that recent movies are rated better than old movies.
+ggplot(org_data) +
+aes(x = Avg_Rating, y = Age, size = Votes) +
+geom_point(colour = "#0c4c8a") +
+theme_minimal()
+```
+
+```{r}
+#Voters vs Age graph
+##We can see that recent movies have higher votes
+ggplot(org_data) +
+aes(x = Age, y = Votes) +
+geom_point(size = 1L, colour = "#0c4c8a") +
+theme_minimal()
+
+```
+
+
+This is what we want to do in the preprocessing process.We will try to predict the ratings with the variables by organizing them this way.
+
+```{r}
+##########################
+#Organize your data (EDX)
+#We will organize the data in the format as given below for observation.
+#We will first organize the based on movies and then we will try to predict the average rating by movies.
+#1-the movie is categorized in that genres, 0- movie not part of that genres
+#Avg_Rating; Age_of_movie; Drama; Comedy; Thriller; Romance; ... Audience; 
+#       4.3;           30;     1;      0;        1;       0; ...   40000;
+```
+
+#Install random forest package if needed.
+```{r}
+if(!require(randomForest)){
+  install.packages("randomForest")
+  library(randomForest)
+}
+
+```
+
+**2(c). Brief description of model**
+
+To reach our purpose, we will use random forest and KNN algorithm to create our predictions. 
+
+To clearly understand random forest we have to first understand the idea of decision trees. Decision tree is a method to find our predicted values based on our classification decision, which is generally a yes/no question. Though a decision tree may be accurate, it does not really serve the goal of machine learning if we only use one tree. Random forest combines multiple decision trees to make it more accurate especially when the algorithm is tested to new datas. In random forest, we will generally select the number of trees that will maximise the accuracy of the model.The goal of random forest is to create a model with better accurcy than random guessing. We will start to organize the data by creating unique characters for each genres, separating the movieIDs, and creating the training and testing dataset. Then we will find the value of the RMSE.
+
+K-nearest neighbor or the KNN model relies on the idea of proximity, in which similar datapoints are close to each other or "neighbors".This means that new datapoints will be assigned a value based on their proximity with other values.In order to create predictions with this model, we have to first find the best value of K or the number of neighbors to include in the dataset.Genereally the value of k is defined by the formula k=sqrt(N), with N being the number of samples in training set. A value of K that is too large will result in high bias.[^3] 
+
+
+**2(d). Preprocessing and data cleaning**
+```{r}
+##Organizing Data
+#The data will be organize with the following codes. However, to avoid loading this all over again, which takes a lot of time,I will separate the results of this code into 2 different files that I will attached in github (theMovies_train.csv, and theMovies_test.csv)
+
+#Discover all the different genres
+genres = paste(edx$genres,collapse="|") %>%
+  strsplit("\\|")
+#Remove the equal genres.Remove the replication
+genres = genres[[1]] %>% unique
+#calculate the age of the movies
+getYear = function(tt){
+  temp = strsplit(tt,"\\(")[[1]]
+  temp = strsplit(temp[length(temp)],"\\)")[[1]]
+  return(as.numeric(temp))
+}
+#Select the genres of each movie 
+getGenres = function(list_genres){
+  temp = paste(list_genres, collapse="|")
+  temp = unique(strsplit(temp, "\\|")[[1]])
+  return(temp)
+}
+
+#separate the movieIDs
+mov = edx$movieId %>% unique
+#Preparing the data about the movies.We will name the columns.
+org_data = data.frame(matrix(0, length(mov), length(genres) + 5))
+names(org_data) = c("Movie_ID", "Title", "Avg_Rating", "Age", "Votes", genres)
+names(org_data)[c(12,21,25)] = c("Sci_Fi","Film_Noir","None")
+#Filling the information about all the movies 
+for (i in 1:length(mov)){
+  org_data$Movie_ID[i] = mov[i]
+  focus = which(edx$movieId == mov[i])
+  org_data$Title[i] = names(table(edx$title[focus]))
+  org_data$Avg_Rating[i] = round(mean(edx$rating[focus]), 1)
+  org_data$Age[i] = 2020 - getYear(org_data$Title[i])
+  org_data$Votes[i] = length(focus)
+  who = 5 + match(getGenres(edx$genres[focus]), genres)
+  org_data[i,who] = 1
+}
+```
+
+**2(e). Random forest model**
+
+We will start to do our model-specific codes.We will begin by creating the training and testing data.Here, 70% will be for the training set and 30% will be for the testing set. 
+
+```{r}
+######################
+test_index <- createDataPartition(
+  y = org_data$Avg_Rating, 
+  times = 1, 
+  p = 0.3, #30% for test
+  list = FALSE)
+
+org_train <- org_data[-test_index,]
+org_test <- org_data[test_index,]
+
+```
+
+
+```{r}
+#Install randomForest if needed
+if(!require(randomForest)){
+  install.packages("randomForest")
+  library(randomForest)
+}
+#if the code above doesn't run, run these two codes instead.
+# org_data = read.csv("theMovies_train.csv")
+# org_test = read.csv("theMovies_test.csv")
+
+#Transform the genres columns in factors
+for (i in 6:25){
+  org_train[,i] = as.factor(org_train[,i])
+  org_test[,i] = as.factor(org_test[,i])
+}
+
+library(reshape)
+library(tidyverse)
+
+org_data_melt <- melt(data = org_data, measure.vars = names(org_data)[6:25]) %>% 
+  filter(value == 1) %>% 
+  select(!value)
+
+org_test_melt <- melt(data = org_test, measure.vars = names(org_test)[6:25]) %>% 
+  filter(value == 1) %>% 
+  select(!value)
+
+#We will create 'my_pred' which will predict the average rating based on movies.
+rf_mov = randomForest(Avg_Rating ~ ., data=org_train[,-c(1,2,25)])
+
+my_pred = predict(rf_mov, org_test[,-c(1,2,25)])
+
+
+if(!require(MLmetrics)){
+  install.packages("MLmetrics")
+  library(MLmetrics)
+}
+
+#We'll create 'rf_rmse' to store the value of RMSE for random forest. Then, we'll print the value.
+rf_rmse = RMSE(my_pred, org_test$Avg_Rating)
+rf_rmse
+
+
+```
+
+\newpage
+# Knn
+**2(f). KNN algorithm**
+```{r}
+train <- org_train[,-c(1,2,25)]
+test <- org_test[,-c(1,2,25)]
+  
+results = list(k = rep(0,100), rmse = rep(0,100))
+
+for (i in 2:101){
+  my_kknn <- kknn(Avg_Rating ~ ., 
+                  train, 
+                  test, 
+                  k = i)
+  
+  my_rmse = RMSE(my_kknn$fitted.values, test$Avg_Rating)
+  my_rmse
+  
+  results$k[i] = i
+  results$rmse[i] = my_rmse
+}
+
+```
+
+
+```{r}
+# K vs Accuracy
+#Here we will try to find the best value of k.
+results$k = results$k[-1]
+results$rmse = results$rmse[-1]
+plot(results$k, results$rmse, type="l",
+     xlab="k", ylab="RMSE")
+
+best.K = results$k[which.min(results$rmse)]
+best.K
+```
+
+
+```{r}
+  best_kknn <- kknn(Avg_Rating ~ ., 
+                    train, 
+                    test, 
+                    k = best.K)
+  
+  kknn_rmse = RMSE(best_kknn$fitted.values, test$Avg_Rating)
+  kknn_rmse
+
+```
+
+
+
+
+#Results
+
+**3(a).Insights and findings**
+```{r}
+rf_rmse
+kknn_rmse
+```
+RMSE is the measure of the standard error of the predictions error.So,the lower the RMSE, the better it is since that means that our residuals are less extreme.The general formula of RMSE is: sqrt(((y predicted-y observed)^2)/n).
+Our RMSE result for random forest is 0.456029 and 0.4832858 for KNN which is really good since this means that our predictions is closer to the regression line since the lesser the RMSE the better. This shows that our prediction that we generated with random forest is proven to be successful in achieving our goal. 
+However, as we can see, the calue of RMSE is lower for the random forest model this is because the random forest model is more robust and it an ensemble learning method that aggregates many decision trees which makes it a very good model.
+
+#Conclusion
+
+**4(a). Summary of findings**
+
+From this we can conclude that movieID,Genres set (binary variables), age of the movie, and total of votes is a good factor to predict movie ratings. Also, we can see that the accuracy of the random forest model is better than the KNN algorithm. However, these two predictions aren't so far from each other. 
+
+**4(b). Limitations of model**
+
+Random forest is an ensemble learning technique that uses multiple decision trees which makes it accurate.However, the model is complicated and it is hard to really find the optimal amount of trees that will maximise the accuracy of the model. Also, compared to decision trees, it takes way more time to train the dataset.Moreover, it is also less interpretable since some of the features are left out in the model. A huge number of trees may also be costly to implement. 
+KNN's limitation is it is more noisy than random forest. It is more sensitive to missing values and outliers. ALso it may be difficult to determined the best value of K. 
+
+**4(c). Future work**
+
+The data conveys several insights, however, there are still more things to explore from this dataset. Although the dataset is very large, it has very little variables which makes it harder to interpret and create relationships between each variables. Therefore, in order to create claims and strengthen the results of the findings here, there should be more research and we should try to observe similar relationship from other related datasets.Also, we might try to implement more models to see which one works best and modify the parameters.
+
+
+***6(a). Citations and credits***
+
+Credit to dataset owner:
+F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages. DOI=http://dx.doi.org/10.1145/2827872
+
+#Citations 
+
+Subramanian, Dhilip. “A Simple Introduction to K-Nearest Neighbors Algorithm.” Medium, Towards Data Science, 3 Jan. 2020, towardsdatascience.com/a-simple-introduction-to-k-nearest-neighbors-algorithm-b3519ed98e.
+
+#Footnote:
+
+[^1]:https://grouplens.org/datasets/movielens/10m/
+[^2]:https://drive.google.com/drive/folders/1IZcBBX0OmL9wu9AdzMBFUG8GoPbGQ38D
+[^3]:https://towardsdatascience.com/a-simple-introduction-to-k-nearest-neighbors-algorithm-b3519ed98e
+
+
+
+#Environment
+```{r}
+print("Operating System:")
+version
+```
+
+```{r}
+print("All installed packages")
+installed.packages()
+```
